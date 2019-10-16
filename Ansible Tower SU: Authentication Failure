@@ -1,0 +1,93 @@
+Hi,
+
+When my Unix Ansible Tower and Ansible Client's root password set to the same, my network_config playbook job can run smoothly 
+using Ansible Tower Gui (template).  However, when I set the two root to different password, I will hit su: Authentication failure.
+Can someone help and advise how to fix this?  I do not want my Unix Ansible Tower Unix root account and Ansible Client Unix root account 
+to have the same password. "Enable Job Isolation" is toggled to OFF.
+
+P/S: Earlier I have encountered the same error with ansible "local_actions", this is fixed by toggle "Enable Job Isolation" of OFF at 
+Ansible Tower Gui as suggested by docs.ansible.com website.  The a
+
+
+When password for Ansible Tower Server and Client are different. eg,
+Unix Ansible Server’s root:  Abcd123
+Unix Ansible Client’s root :  Uxpasswd
+
+cat /Network_Configs/main.yml
+---
+- name: Extract network configurations
+  become: true
+  hosts: all
+
+  roles:
+    - commands
+
+
+cat /Network_Configs/roles/commands/tasks/main.yml
+- name: run commands
+  shell: |
+    echo "/usr/bin/uptime"
+    echo "================"
+    /usr/bin/uptime
+    echo " "
+    echo "/usr/bin/df -h /"
+    echo "================"
+    /usr/bin/df -h /
+   register: output
+  when: (not ansible_os_family=="Windows")
+  tags: run_script
+
+- name: debug print - json
+  debug: var=output.stdout
+  ignore_errors: yes
+  tags: run_script
+  when: (not ansible_os_family=="Windows")
+
+- name: save output as json format
+  local_action: "copy content='hostname: {{ ansible_hostname }}\naddress: {{ ansible_all_ipv4_addresses | to_json }}\nOS: {{ ansible_distribution }}\n\nuserdata: \n{{ output.stdout }}\n' dest={{ folder }}{{ ansible_hostname + '_' + ansible_distribution +'_' + ansible_date_time.date + '_' + ansible_date_time.time }}.json"
+  when: (not ansible_os_family == "Windows")
+  tags: run_script
+
+
+cat /Network_Configs/roles/commands/vars/main.yml
+#variables
+folder: /home/xxx/nwconfig/
+
+
+
+TASK [commands : save output as json format] ***********************************
+17:05:56
+28
+fatal: [solarismq03]: FAILED! => {"msg": "Failed to get information on remote file (/var/lib/awx/projects/solarismq03_Solaris_2019-10-04_17:05:49.json): su: Authentication failure\n"}
+29
+fatal: [solarisndp1]: FAILED! => {"msg": "Failed to get information on remote file (/var/lib/awx/projects/solarisndp1_Solaris_2019-10-04_17:05:51.json): su: Authentication failure\n"}
+30
+fatal: [solarispeg1]: FAILED! => {"msg": "Failed to get information on remote file (/var/lib/awx/projects/solarispeg1_Solaris_2019-10-04_17:05:53.json): su: Authentication failure\n"}
+
+
+When password for Ansible Tower Server and Client are set to the same.  The same template job run at Ansbile Tower Gui passed.  
+
+
+TASK [commands : save output as json format] ***********************************
+17:15:56
+28
+changed: [solarismq03 -> localhost]
+29
+changed: [solarisndp1 -> localhost]
+30
+changed: [solarispeg1 -> localhost]
+31
+32
+PLAY RECAP *********************************************************************
+17:15:59
+33
+solarismq03 : ok=4 changed=2 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0 
+34
+solarisndp1 : ok=4 changed=2 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0 
+35
+solarispeg1 : ok=4 changed=2 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0 
+
+Thanks in advance.
+
+Thanks
+Emily
